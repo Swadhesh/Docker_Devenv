@@ -1,0 +1,143 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dev Environment App</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.css" integrity="sha512-uf06llspW44/LZpHzHT6qBOIVODjWtv4MxCricRxkzvopAlSWnTf6hpZTFxuuZcuNE9CBQhqE0Seu1CoRk84nQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="node_modules/xterm/css/xterm.css" />
+  <script src="node_modules/xterm/lib/xterm.js"></script>
+  <style>
+    body {
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    button {
+      margin-right: 10px;
+    }
+
+    #code {
+      margin-bottom: 20px;
+    }
+
+    #output {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="mt-4">Select Development Environment</h1>
+    
+    <div class="btn-group" role="group" aria-label="Development Environment">
+      <button type="button" class="btn btn-primary" onclick="selectEnvironment('python')">Python</button>
+      <button type="button" class="btn btn-primary" onclick="selectEnvironment('c')">C</button>
+      <button type="button" class="btn btn-primary" onclick="selectEnvironment('openjdk')">Java</button>
+    </div>
+
+    <div class="form-group">
+      <label for="code">Code:</label>
+      <textarea id="code" class="form-control" rows="10" cols="50"></textarea>
+    </div>
+
+    <button type="button" class="btn btn-success" onclick="runCode()">Run Code</button>
+
+    <div id="output" class="mt-3"></div>
+    <div id="terminal"></div>
+
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js" integrity="sha512-8RnEqURPUc5aqFEN04aQEiPlSAdE0jlFS/9iGgUyNtwFnSKCXhmB6ZTNl7LnDtDWKabJIASzXrzD0K+LYexU9g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <script>
+    let selectedEnvironment = '';
+
+    function selectEnvironment(environment) {
+      selectedEnvironment = environment;
+      console.log(`Selected environment: ${selectedEnvironment}`);
+    }
+
+    function runCode() {
+      const code = getCode();
+      if (!code) {
+        console.error('Code is empty.');
+        return;
+      }
+
+      if (!selectedEnvironment) {
+        console.error('No environment selected.');
+        return;
+      }
+
+      fetch('http://localhost:3000/runcode', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ environment: selectedEnvironment, code }),
+      })
+        .then(response => response.text())
+        .then(result => {
+          console.log(result);
+          document.getElementById('output').innerText = result;
+        })
+        .catch(error => {
+          console.error('Error:', error);
+        });
+    }
+
+    function getCode() {
+      return editor.getValue();
+    }
+
+    const editor = CodeMirror.fromTextArea(document.getElementById('code'), {
+      lineNumbers: true,
+      mode: 'text/x-csrc', // Change the mode according to your requirements
+    });
+
+    function createTerminal() {
+    const terminalContainer = document.getElementById('terminal');
+
+    const ptyProcess = spawn('bash', [], {
+      name: 'xterm-color',
+      cols: 80,
+      rows: 30,
+      cwd: process.env.HOME,
+      env: process.env,
+    });
+
+    const term = new Terminal();
+    term.open(terminalContainer);
+    term.write('Welcome to the pseudo-terminal!\r\n\r\n');
+
+    term.onData((data) => {
+      ptyProcess.write(data);
+    });
+
+    ptyProcess.on('data', (data) => {
+      term.write(data);
+    });
+
+    ptyProcess.on('exit', () => {
+      term.write('\r\n\r\nPseudo-terminal has exited.\r\n');
+    });
+  }
+
+  // Call createTerminal when the page loads
+  createTerminal();
+  </script>
+</body>
+</html>
