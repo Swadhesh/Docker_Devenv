@@ -67,7 +67,7 @@
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       let selectedEnvironment = '';
-      const socket = io(); // Move the socket declaration outside the functions
+      const socket = io("http://localhost:5501"); // Move the socket declaration outside the functions
     
       function selectEnvironment(environment) {
         selectedEnvironment = environment;
