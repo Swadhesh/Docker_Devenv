@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.css" integrity="sha512-uf06llspW44/LZpHzHT6qBOIVODjWtv4MxCricRxkzvopAlSWnTf6hpZTFxuuZcuNE9CBQhqE0Seu1CoRk84nQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link rel="stylesheet" href="node_modules/xterm/css/xterm.css" />
   <script src="node_modules/xterm/lib/xterm.js"></script>
+  <!-- <script src="/socket.io/socket.io.js"></script> -->
+  <script src="https://cdn.socket.io/4.7.3/socket.io.min.js" integrity="sha384-+miq58Ltmjm+SSP5g8Ok6dpMO/6R4n8xe/x1Yj0Bdb9kiEz25LTnWv/GZQTRQamg" crossorigin="anonymous"></script>
   <style>
     body {
       padding: 20px;
@@ -63,81 +65,73 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js" integrity="sha512-8RnEqURPUc5aqFEN04aQEiPlSAdE0jlFS/9iGgUyNtwFnSKCXhmB6ZTNl7LnDtDWKabJIASzXrzD0K+LYexU9g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
   <script>
-    let selectedEnvironment = '';
-
-    function selectEnvironment(environment) {
-      selectedEnvironment = environment;
-      console.log(`Selected environment: ${selectedEnvironment}`);
-    }
-
-    function runCode() {
-      const code = getCode();
-      if (!code) {
-        console.error('Code is empty.');
-        return;
+    document.addEventListener('DOMContentLoaded', () => {
+      let selectedEnvironment = '';
+      const socket = io(); // Move the socket declaration outside the functions
+    
+      function selectEnvironment(environment) {
+        selectedEnvironment = environment;
+        console.log(`Selected environment: ${selectedEnvironment}`);
       }
-
-      if (!selectedEnvironment) {
-        console.error('No environment selected.');
-        return;
-      }
-
-      fetch('http://localhost:3000/runcode', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ environment: selectedEnvironment, code }),
-      })
-        .then(response => response.text())
-        .then(result => {
-          console.log(result);
-          document.getElementById('output').innerText = result;
-        })
-        .catch(error => {
-          console.error('Error:', error);
+    
+      function runCode() {
+        const code = getCode();
+        const input = getInput();
+    
+        if (!code) {
+          console.error('Code is empty.');
+          return;
+        }
+    
+        if (!selectedEnvironment) {
+          console.error('No environment selected.');
+          return;
+        }
+    
+        socket.emit('runCode', { environment: selectedEnvironment, code, input });
+    
+        socket.on('output', (data) => {
+          console.log(data);
+          document.getElementById('output').innerText = data;
         });
-    }
-
-    function getCode() {
-      return editor.getValue();
-    }
-
-    const editor = CodeMirror.fromTextArea(document.getElementById('code'), {
-      lineNumbers: true,
-      mode: 'text/x-csrc', // Change the mode according to your requirements
+      }
+    
+      function getInput() {
+        return prompt('Enter input for the program:');
+      }
+    
+      function getCode() {
+        return editor.getValue();
+      }
+    
+      const editor = CodeMirror.fromTextArea(document.getElementById('code'), {
+        lineNumbers: true,
+        mode: 'text/x-csrc', // Change the mode according to your requirements
+      });
+    
+      function createTerminal() {
+        const terminalContainer = document.getElementById('terminal');
+        const term = new Terminal();
+    
+        term.open(terminalContainer);
+        term.write('Welcome to the pseudo-terminal!\r\n\r\n');
+    
+        term.onData((data) => {
+          socket.emit('input', data); // Send user input to the server
+        });
+    
+        socket.on('output', (data) => {
+          term.write(data); // Display server output in the terminal
+        });
+    
+        socket.on('exit', () => {
+          term.write('\r\n\r\nPseudo-terminal has exited.\r\n');
+        });
+      }
+    
+      // Call createTerminal when the page loads
+      createTerminal();
     });
-
-    function createTerminal() {
-    const terminalContainer = document.getElementById('terminal');
-
-    const ptyProcess = spawn('bash', [], {
-      name: 'xterm-color',
-      cols: 80,
-      rows: 30,
-      cwd: process.env.HOME,
-      env: process.env,
-    });
-
-    const term = new Terminal();
-    term.open(terminalContainer);
-    term.write('Welcome to the pseudo-terminal!\r\n\r\n');
-
-    term.onData((data) => {
-      ptyProcess.write(data);
-    });
-
-    ptyProcess.on('data', (data) => {
-      term.write(data);
-    });
-
-    ptyProcess.on('exit', () => {
-      term.write('\r\n\r\nPseudo-terminal has exited.\r\n');
-    });
-  }
-
-  // Call createTerminal when the page loads
-  createTerminal();
   </script>
 </body>
 </html>

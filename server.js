@@ -1,52 +1,67 @@
 const express = require('express');
-const { spawn } = require('node-pty');
+const http = require('http');
+const { spawn } = require('child_process');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const { Server } = require('socket.io');
 
 const app = express();
-const port = 3000;
+const server = http.createServer(app);
+const io = new Server(server);
+
+const port = 5501;
 
 app.use(bodyParser.json());
 app.use(cors({ origin: '*' }));
 
-app.post('/runcode', async (req, res) => {
-  try {
-    const { environment, code } = req.body;
-    const imageName = getDockerImageName(environment);
+io.on('connection', (socket) => {
+  console.log('A user connected');
 
-    if (!imageName) {
-      return res.status(400).send('Invalid environment');
-    }
+  socket.on('runCode', ({ environment, code, input }) => {
+    try {
+      const imageName = getDockerImageName(environment);
 
-    const command = getDockerRunCommand(imageName, code, environment);
+      if (!imageName) {
+        socket.emit('output', 'Invalid environment');
+        return;
+      }
 
-    const ptyProcess = spawn('docker', command, {
-      name: 'xterm-color',
-      cols: 80,
-      rows: 30,
-      cwd: process.env.HOME,
-      env: process.env,
-    });
+      const command = getDockerRunCommand(imageName, code, environment);
 
-    let output = '';
-
-    ptyProcess.on('data', (data) => {
-      output += data;
-    });
-
-    await new Promise((resolve) => {
-      ptyProcess.on('exit', () => {
-        resolve();
+      const ptyProcess = spawn('docker', command, {
+        name: 'xterm-color',
+        cols: 80,
+        rows: 30,
+        cwd: process.env.HOME,
+        env: process.env,
       });
-    });
 
-    res.send(output);
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).send('Internal Server Error');
-  }
+      ptyProcess.stdout.on('data', (data) => {
+        socket.emit('output', data.toString());
+      });
+
+      if (input) {
+        // Send input to the running process
+        ptyProcess.stdin.write(input);
+      }
+
+      ptyProcess.on('exit', () => {
+        socket.emit('output', '\r\n\r\nPseudo-terminal has exited.\r\n');
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      socket.emit('output', 'Internal Server Error');
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected');
+  });
 });
 
+server.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
 
 function getDockerRunCommand(imageName, code, environment) {
   switch (environment) {
@@ -73,7 +88,3 @@ function getDockerImageName(environment) {
       return null;
   }
 }
-
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
