@@ -45,7 +45,7 @@ io.on('connection', (socket) => {
         ptyProcess.stdin.write(input);
       }
 
-      ptyProcess.on('exit', () => {
+      ptyProcess.stdout.on('exit', () => {
         socket.emit('output', '\r\n\r\nPseudo-terminal has exited.\r\n');
       });
     } catch (error) {

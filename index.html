@@ -65,50 +65,10 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js" integrity="sha512-8RnEqURPUc5aqFEN04aQEiPlSAdE0jlFS/9iGgUyNtwFnSKCXhmB6ZTNl7LnDtDWKabJIASzXrzD0K+LYexU9g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
+    // document.addEventListener('DOMContentLoaded', () => {
       let selectedEnvironment = '';
       const socket = io("http://localhost:5501"); // Move the socket declaration outside the functions
-    
-      function selectEnvironment(environment) {
-        selectedEnvironment = environment;
-        console.log(`Selected environment: ${selectedEnvironment}`);
-      }
-    
-      function runCode() {
-        const code = getCode();
-        const input = getInput();
-    
-        if (!code) {
-          console.error('Code is empty.');
-          return;
-        }
-    
-        if (!selectedEnvironment) {
-          console.error('No environment selected.');
-          return;
-        }
-    
-        socket.emit('runCode', { environment: selectedEnvironment, code, input });
-    
-        socket.on('output', (data) => {
-          console.log(data);
-          document.getElementById('output').innerText = data;
-        });
-      }
-    
-      function getInput() {
-        return prompt('Enter input for the program:');
-      }
-    
-      function getCode() {
-        return editor.getValue();
-      }
-    
-      const editor = CodeMirror.fromTextArea(document.getElementById('code'), {
-        lineNumbers: true,
-        mode: 'text/x-csrc', // Change the mode according to your requirements
-      });
-    
+
       function createTerminal() {
         const terminalContainer = document.getElementById('terminal');
         const term = new Terminal();
@@ -131,7 +91,41 @@
     
       // Call createTerminal when the page loads
       createTerminal();
-    });
+    function getInput() {
+        return prompt('Enter input for the program:');
+      }
+    function selectEnvironment(environment) {
+        selectedEnvironment = environment;
+        console.log(`Selected environment: ${selectedEnvironment}`);
+      }
+      function runCode() {
+        const code = getCode();
+        const input = getInput();
+    
+        if (!code) {
+          console.error('Code is empty.');
+          return;
+        }
+    
+        if (!selectedEnvironment) {
+          console.error('No environment selected.');
+          return;
+        }
+    
+        socket.emit('runCode', { environment: selectedEnvironment, code, input });
+    
+        socket.on('output', (data) => {
+          console.log(data);
+          document.getElementById('output').innerText = data;
+        });
+      }
+      const editor = CodeMirror.fromTextArea(document.getElementById('code'), {
+        lineNumbers: true,
+        mode: 'text/x-csrc', // Change the mode according to your requirements
+      });
+      function getCode() {
+        return editor.getValue();
+      }
   </script>
 </body>
 </html>
