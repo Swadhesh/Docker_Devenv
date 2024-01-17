@@ -42,11 +42,11 @@ io.on('connection', (socket) => {
 
       if (input) {
         // Send input to the running process
-        ptyProcess.stdin.write(input);
+        ptyProcess.stdin.write(input + '\n'); // Add a newline after the input
       }
 
       ptyProcess.stdout.on('exit', () => {
-        socket.emit('output', '\r\n\r\nPseudo-terminal has exited.\r\n');
+        socket.emit('output', 'Pseudo-terminal has exited.');
       });
     } catch (error) {
       console.error('Error:', error);
@@ -66,7 +66,7 @@ server.listen(port, () => {
 function getDockerRunCommand(imageName, code, environment) {
   switch (environment) {
     case 'python':
-      return ['run', '-i', '--rm', imageName, '/bin/sh', '-c', `echo '${code}' > script.py && python script.py`];
+      return ['run', '-i', '--rm', imageName, 'python', '-c', code];
     case 'c':
       return ['run', '-i', '--rm', imageName, '/bin/sh', '-c', `echo '${code}' > abc.c && gcc abc.c -o abc && ./abc`];
     case 'openjdk':

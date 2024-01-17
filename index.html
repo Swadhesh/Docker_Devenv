@@ -92,33 +92,36 @@
       // Call createTerminal when the page loads
       createTerminal();
     function getInput() {
-        return prompt('Enter input for the program:');
+      const input = prompt('Enter input for the program:');
+    // Replace newline characters with the escape sequence '\n'
+    return input ? input.replace(/\n/g, '\\n') : input;
       }
     function selectEnvironment(environment) {
         selectedEnvironment = environment;
         console.log(`Selected environment: ${selectedEnvironment}`);
       }
       function runCode() {
-        const code = getCode();
-        const input = getInput();
-    
-        if (!code) {
-          console.error('Code is empty.');
-          return;
-        }
-    
-        if (!selectedEnvironment) {
-          console.error('No environment selected.');
-          return;
-        }
-    
-        socket.emit('runCode', { environment: selectedEnvironment, code, input });
-    
-        socket.on('output', (data) => {
-          console.log(data);
-          document.getElementById('output').innerText = data;
-        });
-      }
+    const code = getCode();
+
+    if (!code) {
+      console.error('Code is empty.');
+      return;
+    }
+
+    if (!selectedEnvironment) {
+      console.error('No environment selected.');
+      return;
+    }
+
+    const input = getInput(); // Get input before emitting the 'runCode' event
+
+    socket.emit('runCode', { environment: selectedEnvironment, code, input });
+
+    socket.on('output', (data) => {
+      console.log(data);
+      document.getElementById('output').innerText = data;
+    });
+  }
       const editor = CodeMirror.fromTextArea(document.getElementById('code'), {
         lineNumbers: true,
         mode: 'text/x-csrc', // Change the mode according to your requirements
