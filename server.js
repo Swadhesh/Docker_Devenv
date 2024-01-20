@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const http = require('http');
 const { spawn } = require('child_process');
@@ -9,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const port = 5501;
+const port = 6501;
 
 app.use(bodyParser.json());
 app.use(cors({ origin: '*' }));
@@ -17,7 +18,7 @@ app.use(cors({ origin: '*' }));
 io.on('connection', (socket) => {
   console.log('A user connected');
 
-  socket.on('runCode', ({ environment, code, input }) => {
+  socket.on('runCode', ({ environment, code }) => {
     try {
       const imageName = getDockerImageName(environment);
 
@@ -34,19 +35,31 @@ io.on('connection', (socket) => {
         rows: 30,
         cwd: process.env.HOME,
         env: process.env,
+        stdio: ['pipe', 'pipe', 'pipe'] // Add an additional pipe for user input
       });
 
       ptyProcess.stdout.on('data', (data) => {
         socket.emit('output', data.toString());
       });
 
-      if (input) {
-        // Send input to the running process
-        ptyProcess.stdin.write(input + '\n'); // Add a newline after the input
-      }
+      ptyProcess.stderr.on('data', (data) => {
+        socket.emit('output', data.toString());
+      });
 
-      ptyProcess.stdout.on('exit', () => {
-        socket.emit('output', 'Pseudo-terminal has exited.');
+      socket.on('input', (data) => {
+        // Send user input to the pseudo-terminal
+        console.log("Received input",data.trim());
+        ptyProcess.stdin.write(data + '\n'); // Include a newline character to simulate pressing "Enter"
+        
+      });
+
+      socket.on('inputEnd', () => {
+        console.log('Pseudo-terminal exited with code:', code);
+        ptyProcess.stdin.end(); // Signal the end of input
+      });
+
+      ptyProcess.on('exit', (code) => {
+        socket.emit('exit', code);
       });
     } catch (error) {
       console.error('Error:', error);

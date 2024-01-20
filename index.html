@@ -8,16 +8,23 @@
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.css" integrity="sha512-uf06llspW44/LZpHzHT6qBOIVODjWtv4MxCricRxkzvopAlSWnTf6hpZTFxuuZcuNE9CBQhqE0Seu1CoRk84nQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link rel="stylesheet" href="node_modules/xterm/css/xterm.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/theme/material.min.css" integrity="sha512-jA21084nir3cN96YuzJ1DbtDn30kxhxqQToAzCEGZcuRAswWfYirpUu8HVm8wRNoWDCYtA4iavd2Rb1bQSLv7g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <script src="node_modules/xterm/lib/xterm.js"></script>
-  <!-- <script src="/socket.io/socket.io.js"></script> -->
   <script src="https://cdn.socket.io/4.7.3/socket.io.min.js" integrity="sha384-+miq58Ltmjm+SSP5g8Ok6dpMO/6R4n8xe/x1Yj0Bdb9kiEz25LTnWv/GZQTRQamg" crossorigin="anonymous"></script>
   <style>
+    #head1 {
+      text-align: center;
+    }
+
     body {
       padding: 20px;
+      background-color: #282c34; /* Dark background color for dark mode */
+      color: #abb2bf; /* Light text color for dark mode */
     }
 
     h1 {
       margin-bottom: 20px;
+      color: #61dafb; /* Light blue heading color */
     }
 
     button {
@@ -26,20 +33,77 @@
 
     #code {
       margin-bottom: 20px;
+      background-color: #1e1e1e; /* Dark code editor background */
     }
 
     #output {
       margin-top: 20px;
       padding: 10px;
-      border: 1px solid #ccc;
+      border: 1px solid #555;
       border-radius: 5px;
       white-space: pre-wrap;
+      background-color: #333; /* Dark output background color */
+      color: #ddd; /* Light text color for output */
+    }
+
+    #terminal {
+      background-color: #1e1e1e; /* Dark terminal background color */
+      color: #d4d4d4; /* Light text color for terminal */
+    }
+
+    .btn-primary {
+      background-color: #61dafb; /* Light blue button color */
+      border-color: #61dafb;
+      color: #282c34; /* Dark text color for button */
+    }
+
+    .btn-success {
+      background-color: #28a745; /* Green button color */
+      border-color: #28a745;
+      color: #282c34; /* Dark text color for button */
+    }
+
+    /* Add dark mode styles */
+    .dark-mode body {
+      background-color: #1e1e1e;
+      color: #d4d4d4;
+    }
+
+    .dark-mode h1 {
+      color: #61dafb;
+    }
+
+    .dark-mode #code {
+      background-color: #1e1e1e;
+      color: #d4d4d4;
+    }
+
+    .dark-mode #output {
+      background-color: #333;
+      color: #ddd;
+    }
+
+    .dark-mode #terminal {
+      background-color: #1e1e1e;
+      color: #d4d4d4;
+    }
+
+    .dark-mode .btn-primary {
+      background-color: #61dafb;
+      border-color: #61dafb;
+      color: #282c34;
+    }
+
+    .dark-mode .btn-success {
+      background-color: #28a745;
+      border-color: #28a745;
+      color: #282c34;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1 class="mt-4">Select Development Environment</h1>
+    <h1 class="mt-4" id="head1">Select Development Environment</h1>
     
     <div class="btn-group" role="group" aria-label="Development Environment">
       <button type="button" class="btn btn-primary" onclick="selectEnvironment('python')">Python</button>
@@ -56,7 +120,6 @@
 
     <div id="output" class="mt-3"></div>
     <div id="terminal"></div>
-
   </div>
 
   <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
@@ -65,70 +128,80 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js" integrity="sha512-8RnEqURPUc5aqFEN04aQEiPlSAdE0jlFS/9iGgUyNtwFnSKCXhmB6ZTNl7LnDtDWKabJIASzXrzD0K+LYexU9g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
   <script>
-    // document.addEventListener('DOMContentLoaded', () => {
-      let selectedEnvironment = '';
-      const socket = io("http://localhost:5501"); // Move the socket declaration outside the functions
+    let selectedEnvironment = '';
+    const socket = io("http://localhost:6501");
+    const term = new Terminal();
 
-      function createTerminal() {
-        const terminalContainer = document.getElementById('terminal');
-        const term = new Terminal();
-    
-        term.open(terminalContainer);
-        term.write('Welcome to the pseudo-terminal!\r\n\r\n');
-    
-        term.onData((data) => {
-          socket.emit('input', data); // Send user input to the server
-        });
-    
-        socket.on('output', (data) => {
-          term.write(data); // Display server output in the terminal
-        });
-    
-        socket.on('exit', () => {
-          term.write('\r\n\r\nPseudo-terminal has exited.\r\n');
-        });
-      }
-    
-      // Call createTerminal when the page loads
-      createTerminal();
-    function getInput() {
-      const input = prompt('Enter input for the program:');
-    // Replace newline characters with the escape sequence '\n'
-    return input ? input.replace(/\n/g, '\\n') : input;
-      }
-    function selectEnvironment(environment) {
-        selectedEnvironment = environment;
-        console.log(`Selected environment: ${selectedEnvironment}`);
-      }
-      function runCode() {
-    const code = getCode();
+    function createTerminal() {
+      const terminalContainer = document.getElementById('terminal');
+      term.open(terminalContainer);
+      term.write('Welcome to the pseudo-terminal!\r\n\r\n');
+      term.focus();
+      let inputBuffer = ''; // Variable to accumulate user input
 
-    if (!code) {
-      console.error('Code is empty.');
-      return;
-    }
-
-    if (!selectedEnvironment) {
-      console.error('No environment selected.');
-      return;
-    }
-
-    const input = getInput(); // Get input before emitting the 'runCode' event
-
-    socket.emit('runCode', { environment: selectedEnvironment, code, input });
-
-    socket.on('output', (data) => {
-      console.log(data);
-      document.getElementById('output').innerText = data;
-    });
-  }
-      const editor = CodeMirror.fromTextArea(document.getElementById('code'), {
-        lineNumbers: true,
-        mode: 'text/x-csrc', // Change the mode according to your requirements
+      term.onData((data) => {
+        if (data === '\r') {
+          // Send accumulated input to the server when Enter is pressed
+          socket.emit('input', inputBuffer);
+          inputBuffer = ''; // Clear the input buffer after sending
+        } else {
+          // Accumulate other user input characters
+          inputBuffer += data;
+          // Forward other user input characters to the terminal
+          term.write(data);
+        }
       });
-      function getCode() {
-        return editor.getValue();
+
+      socket.on('output', (data) => {
+        term.write('\n'+data);
+      });
+
+      socket.on('exit', () => {
+        term.write('\r\n\r\nPseudo-terminal has exited.\r\n');
+      });
+    }
+
+    createTerminal();
+
+    function selectEnvironment(environment) {
+      selectedEnvironment = environment;
+      console.log(`Selected environment: ${selectedEnvironment}`);
+    }
+
+    function runCode() {
+      const code = getCode();
+
+      if (!code) {
+        console.error('Code is empty.');
+        return;
       }
+
+      if (!selectedEnvironment) {
+        console.error('No environment selected.');
+        return;
+      }
+
+      // Signal the end of input
+      socket.emit('inputEnd');
+
+      socket.on('output', (data) => {
+        console.log(data);
+        document.getElementById('output').innerText = data;
+      });
+
+      // Send the code to the server after setting up the input listener
+      socket.emit('runCode', { environment: selectedEnvironment, code });
+    }
+
+    const editor = CodeMirror.fromTextArea(document.getElementById('code'), {
+      lineNumbers: true,
+      mode: 'text/x-csrc',
+      theme: 'material'
+    });
+
+    function getCode() {
+      return editor.getValue();
+    }
   </script>
 </body>
 </html>
