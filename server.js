@@ -1,16 +1,16 @@
-// server.js
 const express = require('express');
 const http = require('http');
 const { spawn } = require('child_process');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const { Server } = require('socket.io');
+const Docker = require('dockerode');
+const docker = new Docker();
 
+const port = 6501;
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
-
-const port = 6501;
 
 app.use(bodyParser.json());
 app.use(cors({ origin: '*' }));
@@ -18,12 +18,21 @@ app.use(cors({ origin: '*' }));
 io.on('connection', (socket) => {
   console.log('A user connected');
 
-  socket.on('runCode', ({ environment, code }) => {
+  socket.on('runCode', async ({ environment, code }) => {
     try {
       const imageName = getDockerImageName(environment);
 
       if (!imageName) {
         socket.emit('output', 'Invalid environment');
+        return;
+      }
+
+      // Pull the Docker image
+      try {
+        await pullDockerImage(imageName);
+      } catch (error) {
+        console.error('Error pulling Docker image:', error);
+        socket.emit('output', 'Error pulling Docker image');
         return;
       }
 
@@ -35,28 +44,28 @@ io.on('connection', (socket) => {
         rows: 30,
         cwd: process.env.HOME,
         env: process.env,
-        stdio: ['pipe', 'pipe', 'pipe'] // Add an additional pipe for user input
+        stdio: ['pipe', 'pipe', 'pipe']
       });
 
       ptyProcess.stdout.on('data', (data) => {
         socket.emit('output', data.toString());
       });
-
+      
       ptyProcess.stderr.on('data', (data) => {
         socket.emit('output', data.toString());
       });
-
+      
       socket.on('input', (data) => {
         // Send user input to the pseudo-terminal
         console.log("Received input",data.trim());
         ptyProcess.stdin.write(data + '\n'); // Include a newline character to simulate pressing "Enter"
-        
       });
-
+      
       socket.on('inputEnd', () => {
         console.log('Pseudo-terminal exited with code:', code);
         ptyProcess.stdin.end(); // Signal the end of input
       });
+      
 
       ptyProcess.on('exit', (code) => {
         socket.emit('exit', code);
@@ -75,6 +84,26 @@ io.on('connection', (socket) => {
 server.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
+
+async function pullDockerImage(imageName) {
+  return new Promise((resolve, reject) => {
+    const image = docker.getImage(imageName);
+
+    image.pull((err, stream) => {
+      if (err) {
+        return reject(err);
+      }
+
+      docker.modem.followProgress(stream, (err, output) => {
+        if (err) {
+          return reject(err);
+        }
+
+        resolve();
+      });
+    });
+  });
+}
 
 function getDockerRunCommand(imageName, code, environment) {
   switch (environment) {

@@ -11,6 +11,11 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/theme/material.min.css" integrity="sha512-jA21084nir3cN96YuzJ1DbtDn30kxhxqQToAzCEGZcuRAswWfYirpUu8HVm8wRNoWDCYtA4iavd2Rb1bQSLv7g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <script src="node_modules/xterm/lib/xterm.js"></script>
   <script src="https://cdn.socket.io/4.7.3/socket.io.min.js" integrity="sha384-+miq58Ltmjm+SSP5g8Ok6dpMO/6R4n8xe/x1Yj0Bdb9kiEz25LTnWv/GZQTRQamg" crossorigin="anonymous"></script>
+  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js" integrity="sha512-8RnEqURPUc5aqFEN04aQEiPlSAdE0jlFS/9iGgUyNtwFnSKCXhmB6ZTNl7LnDtDWKabJIASzXrzD0K+LYexU9g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  
   <style>
     #head1 {
       text-align: center;
@@ -122,14 +127,12 @@
     <div id="terminal"></div>
   </div>
 
-  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
-  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js" integrity="sha512-8RnEqURPUc5aqFEN04aQEiPlSAdE0jlFS/9iGgUyNtwFnSKCXhmB6ZTNl7LnDtDWKabJIASzXrzD0K+LYexU9g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-
+  
   <script>
     let selectedEnvironment = '';
-    const socket = io("http://localhost:6501");
+    const serverIP = '192.168.32.204'; // Replace with the actual IP address
+    const socket = io(`http://${serverIP}:6501`);
+    // const socket = io("http://localhost:6501");
     const term = new Terminal();
 
     function createTerminal() {
@@ -144,7 +147,15 @@
           // Send accumulated input to the server when Enter is pressed
           socket.emit('input', inputBuffer);
           inputBuffer = ''; // Clear the input buffer after sending
-        } else {
+          term.write('\r');
+        }
+        else if (data === '\x7F' || data === '\b') {
+    // Remove the last character from the input buffer
+          inputBuffer = inputBuffer.slice(0, -1);
+          // Clear the terminal line and redraw the updated input
+          term.write('\x1b[2K\r' + inputBuffer);
+        } 
+        else {
           // Accumulate other user input characters
           inputBuffer += data;
           // Forward other user input characters to the terminal
@@ -153,7 +164,7 @@
       });
 
       socket.on('output', (data) => {
-        term.write('\n'+data);
+        term.write('\r\n'+data);
       });
 
       socket.on('exit', () => {
